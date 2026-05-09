@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>White Wave - Générateur de Badges</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700;900&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --violet: #7c3aed; --violet-dark: #5b21b6; --rose: #db2777;
+            --rose-light: #f472b6; --cyan: #06b6d4; --cyan-dark: #0891b2;
+            --dark: #0f0f1a; --dark-card: #1a1a2e; --dark-input: #252540;
+            --white: #ffffff; --gray: #94a3b8;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 40%, #312e81 100%);
+            min-height: 100vh; color: var(--white); overflow-x: hidden;
+        }
+        #root { min-height: 100vh; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
+        @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes scanline { 0% { top: 0%; } 100% { top: 100%; } }
+        @keyframes pulse-ring { 0% { transform: scale(0.8); opacity: 1; } 100% { transform: scale(1.3); opacity: 0; } }
+        .animate-fadeInUp { animation: fadeInUp 0.6s ease forwards; }
+        .animate-fadeIn { animation: fadeIn 0.4s ease forwards; }
+        .app-container { max-width: 1200px; margin: 0 auto; padding: 20px; min-height: 100vh; display: flex; flex-direction: column; }
+        .app-header { text-align: center; padding: 30px 20px 20px; margin-bottom: 10px; }
+        .app-header h1 { font-family: 'Playfair Display', serif; font-size: clamp(2rem, 5vw, 3rem); background: linear-gradient(90deg, var(--cyan), var(--violet), var(--rose), var(--cyan)); background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; animation: shimmer 4s linear infinite; margin-bottom: 8px; }
+        .app-header p { color: var(--gray); font-size: clamp(0.9rem, 2.5vw, 1.1rem); }
+        .wave-icon { font-size: 2.5rem; display: inline-block; animation: float 3s ease-in-out infinite; filter: drop-shadow(0 0 15px rgba(6, 182, 212, 0.5)); }
+        .fixed-info-bar { background: linear-gradient(90deg, rgba(124,58,237,0.2), rgba(219,39,119,0.2), rgba(6,182,212,0.2)); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 16px 20px; display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin-bottom: 25px; backdrop-filter: blur(10px); }
+        .fixed-info-item { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: rgba(255,255,255,0.9); }
+        .fixed-info-item .icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1rem; }
+        .icon.purple { background: linear-gradient(135deg, var(--violet), var(--violet-dark)); }
+        .icon.pink { background: linear-gradient(135deg, var(--rose), var(--rose-light)); }
+        .icon.cyan { background: linear-gradient(135deg, var(--cyan), var(--cyan-dark)); }
+        .fixed-info-item .label { font-size: 0.65rem; color: var(--gray); text-transform: uppercase; letter-spacing: 1px; }
+        .fixed-info-item .value { font-weight: 700; color: var(--white); }
+        .card { background: rgba(255,255,255,0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); border-radius: 24px; padding: 30px; box-shadow: 0 25px 50px rgba(0,0,0,0.3); }
+        @media (max-width: 480px) { .card { padding: 20px; border-radius: 18px; } }
+        .card-title { font-size: clamp(1.1rem, 3vw, 1.4rem); font-weight: 700; margin-bottom: 25px; display: flex; align-items: center; gap: 10px; background: linear-gradient(90deg, var(--cyan), var(--violet)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-size: 0.75rem; font-weight: 600; color: var(--gray); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1.5px; }
+        .form-group input, .form-group select { width: 100%; padding: 14px 16px; border: 2px solid rgba(255,255,255,0.1); border-radius: 14px; background: var(--dark-input); color: var(--white); font-family: 'Montserrat', sans-serif; font-size: 1rem; transition: all 0.3s ease; appearance: none; -webkit-appearance: none; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--violet); box-shadow: 0 0 0 4px rgba(124,58,237,0.15); }
+        .form-group input::placeholder { color: rgba(255,255,255,0.25); }
+        .select-wrapper { position: relative; }
+        .select-wrapper::after { content: '▼'; position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: var(--violet); font-size: 0.7rem; pointer-events: none; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        @media (max-width: 480px) { .form-row { grid-template-columns: 1fr; } }
+        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 14px 28px; border: none; border-radius: 14px; font-family: 'Montserrat', sans-serif; font-size: 0.95rem; font-weight: 700; cursor: pointer; transition: all 0.3s ease; text-decoration: none; text-transform: uppercase; letter-spacing: 1px; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+        .btn-primary { background: linear-gradient(135deg, var(--violet) 0%, var(--rose) 100%); color: var(--white); width: 100%; padding: 16px; box-shadow: 0 10px 30px rgba(124,58,237,0.4); }
+        .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 15px 40px rgba(124,58,237,0.5); }
+        .btn-primary:active { transform: translateY(0) scale(0.98); }
+        .btn-secondary { background: rgba(255,255,255,0.08); color: var(--white); border: 1px solid rgba(255,255,255,0.15); }
+        .btn-secondary:hover { background: rgba(255,255,255,0.15); transform: translateY(-2px); }
+        .btn-cyan { background: linear-gradient(135deg, var(--cyan) 0%, var(--cyan-dark) 100%); color: var(--white); box-shadow: 0 8px 25px rgba(6,182,212,0.3); }
+        .btn-cyan:hover { transform: translateY(-2px); box-shadow: 0 12px 35px rgba(6,182,212,0.4); }
+        .btn-green { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: var(--white); box-shadow: 0 8px 25px rgba(16,185,129,0.3); }
+        .btn-green:hover { transform: translateY(-2px); }
+        .btn-outline { background: transparent; color: var(--gray); border: 1px solid rgba(255,255,255,0.15); }
+        .btn-outline:hover { border-color: var(--violet); color: var(--white); }
+        .btn-group { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 20px; }
+        .btn-group .btn { flex: 1; min-width: 140px; }
+        .qr-wrapper { display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 20px; }
+        .qr-container { position: relative; padding: 20px; background: linear-gradient(135deg, rgba(124,58,237,0.1), rgba(6,182,212,0.1)); border-radius: 24px; border: 2px solid rgba(255,255,255,0.1); box-shadow: 0 20px 60px rgba(124,58,237,0.2); }
+        .qr-container canvas, .qr-container img { border-radius: 16px; display: block; }
+        .qr-label { text-align: center; color: var(--gray); font-size: 0.8rem; margin-top: 10px; }
+        .badge-preview { position: relative; width: 100%; max-width: 380px; background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%); border-radius: 24px; overflow: hidden; box-shadow: 0 25px 50px rgba(0,0,0,0.4); margin: 0 auto; }
+        .badge-preview.n0 { box-shadow: 0 25px 50px rgba(124,58,237,0.3), 0 0 0 4px rgba(124,58,237,0.3); }
+        .badge-preview.n1 { box-shadow: 0 25px 50px rgba(219,39,119,0.3), 0 0 0 4px rgba(219,39,119,0.3); }
+        .badge-preview.n2 { box-shadow: 0 25px 50px rgba(6,182,212,0.3), 0 0 0 4px rgba(6,182,212,0.3); }
+        .badge-header { padding: 22px 15px; text-align: center; position: relative; overflow: hidden; }
+        .badge-header::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.08) 10px, rgba(255,255,255,0.08) 20px); animation: shimmer 6s linear infinite; }
+        .badge-preview.n0 .badge-header { background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 50%, #7c3aed 100%); }
+        .badge-preview.n1 .badge-header { background: linear-gradient(135deg, #db2777 0%, #f472b6 50%, #db2777 100%); }
+        .badge-preview.n2 .badge-header { background: linear-gradient(135deg, #06b6d4 0%, #67e8f9 50%, #06b6d4 100%); }
+        .badge-event-name { font-family: 'Playfair Display', serif; font-size: clamp(1.3rem, 4vw, 1.6rem); font-weight: 700; text-transform: uppercase; letter-spacing: 3px; position: relative; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        .badge-emoji { font-size: 1.8rem; position: relative; margin-top: 4px; }
+        .badge-logo-section { display: flex; justify-content: center; padding: 20px 15px 12px; background: linear-gradient(180deg, #f8f9fa 0%, #fff 100%); }
+        .badge-logo-circle { width: 110px; height: 110px; border-radius: 50%; display: flex; flex-direction: column; justify-content: center; align-items: center; border: 4px solid; box-shadow: 0 10px 30px rgba(0,0,0,0.3); position: relative; }
+        .badge-logo-circle::after { content: ''; position: absolute; width: 90%; height: 90%; border: 2px dashed; border-radius: 50%; opacity: 0.3; animation: rotate 15s linear infinite; }
+        .badge-logo-team { font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 2px; }
+        .badge-logo-name { font-family: 'Playfair Display', serif; font-size: 0.9rem; font-weight: 700; letter-spacing: 1px; }
+        .badge-logo-wave { font-size: 1.3rem; margin-top: 2px; }
+        .badge-preview.n0 .badge-logo-circle { background: linear-gradient(145deg, #1e1b4b 0%, #4c1d95 100%); border-color: #8b5cf6; }
+        .badge-preview.n0 .badge-logo-team { color: #c4b5fd; }
+        .badge-preview.n0 .badge-logo-name { color: #fff; }
+        .badge-preview.n0 .badge-logo-circle::after { border-color: #8b5cf6; }
+        .badge-preview.n1 .badge-logo-circle { background: linear-gradient(145deg, #4a044e 0%, #9d174d 100%); border-color: #ec4899; }
+        .badge-preview.n1 .badge-logo-team { color: #f9a8d4; }
+        .badge-preview.n1 .badge-logo-name { color: #fff; }
+        .badge-preview.n1 .badge-logo-circle::after { border-color: #ec4899; }
+        .badge-preview.n2 .badge-logo-circle { background: linear-gradient(145deg, #083344 0%, #155e75 100%); border-color: #22d3ee; }
+        .badge-preview.n2 .badge-logo-team { color: #a5f3fc; }
+        .badge-preview.n2 .badge-logo-name { color: #fff; }
+        .badge-preview.n2 .badge-logo-circle::after { border-color: #22d3ee; }
+        .badge-info { padding: 15px 20px 18px; background: #fff; }
+        .badge-info-row { display: flex; align-items: center; margin-bottom: 10px; padding: 10px 12px; background: linear-gradient(135deg, #f8f9fa 0%, #fff 100%); border-radius: 10px; border-left: 3px solid; }
+        .badge-info-icon { width: 30px; height: 30px; border-radius: 8px; display: flex; justify-content: center; align-items: center; margin-right: 12px; font-size: 13px; flex-shrink: 0; color: #fff; }
+        .badge-info-label { font-size: 0.6rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+        .badge-info-value { font-size: 0.85rem; font-weight: 700; color: #1e293b; word-break: break-word; }
+        .badge-role-tag { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-left: 6px; color: #fff; }
+        .badge-preview.n0 .badge-info-row { border-left-color: #8b5cf6; }
+        .badge-preview.n0 .badge-info-icon { background: linear-gradient(135deg, #4c1d95 0%, #7c3aed 100%); }
+        .badge-preview.n0 .badge-role-tag { background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%); }
+        .badge-preview.n1 .badge-info-row { border-left-color: #ec4899; }
+        .badge-preview.n1 .badge-info-icon { background: linear-gradient(135deg, #9d174d 0%, #db2777 100%); }
+        .badge-preview.n1 .badge-role-tag { background: linear-gradient(135deg, #db2777 0%, #f472b6 100%); }
+        .badge-preview.n2 .badge-info-row { border-left-color: #22d3ee; }
+        .badge-preview.n2 .badge-info-icon { background: linear-gradient(135deg, #155e75 0%, #0891b2 100%); }
+        .badge-preview.n2 .badge-role-tag { background: linear-gradient(135deg, #0891b2 0%, #22d3ee 100%); }
+        .badge-footer { padding: 12px; text-align: center; }
+        .badge-footer-text { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 3px; }
+        .badge-footer-line { width: 50px; height: 2px; margin: 6px auto; border-radius: 1px; }
+        .badge-preview.n0 .badge-footer { background: linear-gradient(135deg, #1e1b4b 0%, #4c1d95 100%); }
+        .badge-preview.n0 .badge-footer-text { color: #c4b5fd; }
+        .badge-preview.n0 .badge-footer-line { background: linear-gradient(90deg, transparent, #8b5cf6, transparent); }
+        .badge-preview.n1 .badge-footer { background: linear-gradient(135deg, #4a044e 0%, #9d174d 100%); }
+        .badge-preview.n1 .badge-footer-text { color: #f9a8d4; }
+        .badge-preview.n1 .badge-footer-line { background: linear-gradient(90deg, transparent, #ec4899, transparent); }
+        .badge-preview.n2 .badge-footer { background: linear-gradient(135deg, #083344 0%, #155e75 100%); }
+        .badge-preview.n2 .badge-footer-text { color: #a5f3fc; }
+        .badge-preview.n2 .badge-footer-line { background: linear-gradient(90deg, transparent, #22d3ee, transparent); }
+        .badge-priority { position: absolute; top: 0; right: 0; padding: 6px 12px; border-bottom-left-radius: 14px; font-size: 0.55rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; z-index: 5; color: #fff; }
+        .badge-preview.n0 .badge-priority { background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%); }
+        .badge-preview.n1 .badge-priority { background: linear-gradient(135deg, #db2777 0%, #f472b6 100%); }
+        .badge-preview.n2 .badge-priority { background: linear-gradient(135deg, #06b6d4 0%, #67e8f9 100%); }
+        .generated-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; align-items: start; }
+        @media (max-width: 900px) { .generated-layout { grid-template-columns: 1fr; } }
+        .page-scan .generated-layout { grid-template-columns: 1fr; }
+        .page-scan .form-section { display: none; }
+        .scan-verified-banner { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #fff; padding: 16px 24px; border-radius: 16px; text-align: center; font-weight: 700; margin-bottom: 25px; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 30px rgba(16,185,129,0.3); }
+        .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); background: linear-gradient(135deg, var(--violet), var(--rose)); color: #fff; padding: 14px 28px; border-radius: 14px; font-weight: 600; font-size: 0.9rem; box-shadow: 0 15px 40px rgba(124,58,237,0.4); z-index: 1000; opacity: 0; transition: all 0.4s ease; pointer-events: none; }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .hidden { display: none !important; }
+
+        /* PARTICIPANTS LIST */
+        .participants-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .participants-table th { background: rgba(124,58,237,0.2); color: var(--white); padding: 12px 16px; text-align: left; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; border-bottom: 2px solid rgba(124,58,237,0.3); }
+        .participants-table td { padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.85rem; color: rgba(255,255,255,0.9); }
+        .participants-table tr:hover td { background: rgba(255,255,255,0.03); }
+        .participants-table .role-cell { display: flex; align-items: center; gap: 8px; }
+        .role-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+        .role-dot.n0 { background: linear-gradient(135deg, #7c3aed, #a78bfa); box-shadow: 0 0 8px rgba(124,58,237,0.5); }
+        .role-dot.n1 { background: linear-gradient(135deg, #db2777, #f472b6); box-shadow: 0 0 8px rgba(219,39,119,0.5); }
+        .role-dot.n2 { background: linear-gradient(135deg, #06b6d4, #67e8f9); box-shadow: 0 0 8px rgba(6,182,212,0.5); }
+        .participants-count { display: inline-flex; align-items: center; gap: 8px; background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.3); border-radius: 12px; padding: 8px 16px; font-size: 0.85rem; font-weight: 600; color: var(--white); margin-bottom: 20px; }
+        .search-box { width: 100%; padding: 12px 16px; border: 2px solid rgba(255,255,255,0.1); border-radius: 14px; background: var(--dark-input); color: var(--white); font-family: 'Montserrat', sans-serif; font-size: 0.95rem; margin-bottom: 20px; }
+        .search-box:focus { outline: none; border-color: var(--violet); box-shadow: 0 0 0 4px rgba(124,58,237,0.15); }
+        .search-box::placeholder { color: rgba(255,255,255,0.3); }
+
+        /* SECURITY MODAL */
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; z-index: 2000; animation: fadeIn 0.3s ease; }
+        .modal-content { background: linear-gradient(145deg, var(--dark-card), var(--dark)); border: 1px solid rgba(124,58,237,0.3); border-radius: 24px; padding: 40px; max-width: 400px; width: 90%; text-align: center; box-shadow: 0 25px 50px rgba(0,0,0,0.5); animation: fadeInUp 0.4s ease; }
+        .modal-content h3 { font-size: 1.3rem; margin-bottom: 10px; background: linear-gradient(90deg, var(--cyan), var(--violet)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .modal-content p { color: var(--gray); font-size: 0.9rem; margin-bottom: 25px; }
+        .modal-content .lock-icon { font-size: 3rem; margin-bottom: 15px; display: block; }
+        .modal-content input { width: 100%; padding: 14px 16px; border: 2px solid rgba(255,255,255,0.1); border-radius: 14px; background: var(--dark-input); color: var(--white); font-family: 'Montserrat', sans-serif; font-size: 1rem; text-align: center; letter-spacing: 3px; margin-bottom: 15px; }
+        .modal-content input:focus { outline: none; border-color: var(--violet); box-shadow: 0 0 0 4px rgba(124,58,237,0.15); }
+        .modal-content .error-msg { color: #ef4444; font-size: 0.8rem; margin-top: -10px; margin-bottom: 15px; min-height: 20px; }
+
+        /* NAV */
+        .nav-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .nav-bar .btn { flex: 1; min-width: 120px; font-size: 0.8rem; padding: 12px 16px; }
+
+        /* SCANNER */
+        .scanner-container { width: 100%; max-width: 400px; margin: 0 auto; border-radius: 24px; overflow: hidden; border: 2px solid rgba(124,58,237,0.3); box-shadow: 0 20px 60px rgba(124,58,237,0.2); }
+        .scanner-overlay { position: relative; width: 100%; height: 300px; background: linear-gradient(180deg, rgba(15,15,26,0.9), rgba(15,15,26,0.7)); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .scanner-frame { width: 200px; height: 200px; border: 3px solid var(--cyan); border-radius: 20px; position: relative; box-shadow: 0 0 30px rgba(6,182,212,0.3); }
+        .scanner-frame::before, .scanner-frame::after { content: ''; position: absolute; width: 20px; height: 20px; border-color: var(--cyan); border-style: solid; }
+        .scanner-frame::before { top: -3px; left: -3px; border-width: 4px 0 0 4px; }
+        .scanner-frame::after { bottom: -3px; right: -3px; border-width: 0 4px 4px 0; }
+        .scanner-line { position: absolute; left: 10%; width: 80%; height: 2px; background: linear-gradient(90deg, transparent, var(--cyan), transparent); box-shadow: 0 0 10px var(--cyan); animation: scanline 2s linear infinite; }
+        .scanner-text { margin-top: 20px; color: var(--gray); font-size: 0.9rem; }
+
+        /* FLOATING BUTTONS */
+        .fab { position: fixed; width: 56px; height: 56px; border-radius: 50%; border: none; color: #fff; font-size: 1.4rem; cursor: pointer; box-shadow: 0 8px 25px rgba(0,0,0,0.4); z-index: 999; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease; }
+        .fab:hover { transform: scale(1.1); }
+        .fab-scan { bottom: 25px; right: 25px; background: linear-gradient(135deg, #7c3aed, #db2777); }
+        .fab-list { bottom: 95px; right: 25px; background: linear-gradient(135deg, #06b6d4, #0891b2); font-size: 1.2rem; }
+        .fab-home { bottom: 165px; right: 25px; background: linear-gradient(135deg, #10b981, #059669); font-size: 1.2rem; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const EVENT_NAME = "Brunch Party";
+        const TEAM_NAME = "White Wave";
+        const EVENT_DATE = "13 Juin 2026";
+        const ACCESS_CODE = "White";
+        const STORAGE_KEY = "white_wave_participants";
+
+        const LEVEL_CONFIG = {
+            0: { name: 'ORGANISATEUR', badgeText: 'VIP', className: 'n0', color: '#8b5cf6' },
+            1: { name: 'STAFF', badgeText: 'STAFF', className: 'n1', color: '#ec4899' },
+            2: { name: 'PARTICIPANT', badgeText: 'GUEST', className: 'n2', color: '#22d3ee' }
+        };
+
+        function getLevelFromRole(role) {
+            const r = (role || '').toLowerCase().trim();
+            if (r === 'organisateur') return 0;
+            if (r === 'staff') return 1;
+            return 2;
+        }
+
+        // ============ LOCAL STORAGE ============
+        function getParticipants() {
+            try {
+                const data = localStorage.getItem(STORAGE_KEY);
+                return data ? JSON.parse(data) : [];
+            } catch (e) { return []; }
+        }
+        function saveParticipant(participant) {
+            const list = getParticipants();
+            participant.id = Date.now().toString();
+            participant.createdAt = new Date().toISOString();
+            list.push(participant);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+        }
+        function clearParticipants() {
+            localStorage.removeItem(STORAGE_KEY);
+        }
+
+        // ============ TOAST ============
+        function Toast({ message, visible }) {
+            return React.createElement('div', { className: `toast ${visible ? 'show' : ''}` }, message);
+        }
+
+        // ============ STYLED QR ============
+        function StyledQRCode({ url, level }) {
+            const containerRef = useRef(null);
+            const config = LEVEL_CONFIG[level];
+
+            useEffect(() => {
+                if (!containerRef.current || !url) return;
+                containerRef.current.innerHTML = '';
+                const tempDiv = document.createElement('div');
+                new QRCode(tempDiv, { text: url, width: 280, height: 280, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.H });
+                setTimeout(() => {
+                    const img = tempDiv.querySelector('img');
+                    if (!img) return;
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const size = 320;
+                    canvas.width = size; canvas.height = size;
+                    const gradient = ctx.createLinearGradient(0, 0, size, size);
+                    if (level === 0) { gradient.addColorStop(0, '#1e1b4b'); gradient.addColorStop(0.5, '#4c1d95'); gradient.addColorStop(1, '#1e1b4b'); }
+                    else if (level === 1) { gradient.addColorStop(0, '#4a044e'); gradient.addColorStop(0.5, '#9d174d'); gradient.addColorStop(1, '#4a044e'); }
+                    else { gradient.addColorStop(0, '#083344'); gradient.addColorStop(0.5, '#155e75'); gradient.addColorStop(1, '#083344'); }
+                    ctx.fillStyle = gradient; ctx.fillRect(0, 0, size, size);
+                    ctx.fillStyle = '#ffffff';
+                    const qrSize = 260, qrX = (size - qrSize) / 2, qrY = (size - qrSize) / 2;
+                    roundRect(ctx, qrX, qrY, qrSize, qrSize, 16); ctx.fill();
+                    ctx.drawImage(img, qrX, qrY, qrSize, qrSize);
+                    const centerX = size / 2, centerY = size / 2, logoRadius = 48;
+                    ctx.globalCompositeOperation = 'destination-out';
+                    ctx.beginPath(); ctx.arc(centerX, centerY, logoRadius, 0, Math.PI * 2); ctx.fill();
+                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.beginPath(); ctx.arc(centerX, centerY, logoRadius - 2, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill();
+                    ctx.beginPath(); ctx.arc(centerX, centerY, logoRadius - 2, 0, Math.PI * 2); ctx.strokeStyle = config.color; ctx.lineWidth = 4; ctx.stroke();
+                    ctx.beginPath(); ctx.arc(centerX, centerY, logoRadius - 6, 0, Math.PI * 2);
+                    const logoGrad = ctx.createLinearGradient(centerX - 30, centerY - 30, centerX + 30, centerY + 30);
+                    if (level === 0) { logoGrad.addColorStop(0, '#4c1d95'); logoGrad.addColorStop(1, '#7c3aed'); }
+                    else if (level === 1) { logoGrad.addColorStop(0, '#9d174d'); logoGrad.addColorStop(1, '#db2777'); }
+                    else { logoGrad.addColorStop(0, '#155e75'); logoGrad.addColorStop(1, '#0891b2'); }
+                    ctx.fillStyle = logoGrad; ctx.fill();
+                    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 11px Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillText('Brunch', centerX, centerY - 8); ctx.fillText('Party', centerX, centerY + 8);
+                    containerRef.current.innerHTML = ''; containerRef.current.appendChild(canvas);
+                }, 100);
+            }, [url, level]);
+
+            function roundRect(ctx, x, y, w, h, r) {
+                ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+                ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h); ctx.lineTo(x + r, y + h);
+                ctx.quadraticCurveTo(x, y + h, x, y + h - r); ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
+            }
+
+            return React.createElement('div', { className: 'qr-container', ref: containerRef, style: { minWidth: 320, minHeight: 320, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+                React.createElement('div', { style: { color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem' } }, 'Génération du QR...')
+            );
+        }
+
+        // ============ BADGE ============
+        function Badge({ data }) {
+            const level = data.level || 0;
+            const config = LEVEL_CONFIG[level];
+            return React.createElement('div', { className: `badge-preview ${config.className} animate-fadeInUp` },
+                React.createElement('div', { className: 'badge-priority' }, config.name),
+                React.createElement('div', { className: 'badge-header' },
+                    React.createElement('div', { className: 'badge-event-name' }, EVENT_NAME),
+                    React.createElement('div', { className: 'badge-emoji' }, '🎉')
+                ),
+                React.createElement('div', { className: 'badge-logo-section' },
+                    React.createElement('div', { className: 'badge-logo-circle' },
+                        React.createElement('div', { className: 'badge-logo-team' }, 'Équipe'),
+                        React.createElement('div', { className: 'badge-logo-name' }, TEAM_NAME),
+                        React.createElement('div', { className: 'badge-logo-wave' }, '🌊')
+                    )
+                ),
+                React.createElement('div', { className: 'badge-info' },
+                    React.createElement('div', { className: 'badge-info-row' },
+                        React.createElement('div', { className: 'badge-info-icon' }, '👤'),
+                        React.createElement('div', null,
+                            React.createElement('div', { className: 'badge-info-label' }, 'Nom'),
+                            React.createElement('div', { className: 'badge-info-value' }, data.lastName || '-')
+                        )
+                    ),
+                    React.createElement('div', { className: 'badge-info-row' },
+                        React.createElement('div', { className: 'badge-info-icon' }, '📝'),
+                        React.createElement('div', null,
+                            React.createElement('div', { className: 'badge-info-label' }, 'Prénom'),
+                            React.createElement('div', { className: 'badge-info-value' }, data.firstName || '-')
+                        )
+                    ),
+                    React.createElement('div', { className: 'badge-info-row' },
+                        React.createElement('div', { className: 'badge-info-icon' }, '⚧'),
+                        React.createElement('div', null,
+                            React.createElement('div', { className: 'badge-info-label' }, 'Sexe'),
+                            React.createElement('div', { className: 'badge-info-value' }, data.gender || '-')
+                        )
+                    ),
+                    React.createElement('div', { className: 'badge-info-row' },
+                        React.createElement('div', { className: 'badge-info-icon' }, '📅'),
+                        React.createElement('div', null,
+                            React.createElement('div', { className: 'badge-info-label' }, 'Date'),
+                            React.createElement('div', { className: 'badge-info-value' }, EVENT_DATE)
+                        )
+                    ),
+                    React.createElement('div', { className: 'badge-info-row' },
+                        React.createElement('div', { className: 'badge-info-icon' }, '⭐'),
+                        React.createElement('div', null,
+                            React.createElement('div', { className: 'badge-info-label' }, 'Rôle'),
+                            React.createElement('div', { className: 'badge-info-value' },
+                                data.role || '-',
+                                React.createElement('span', { className: 'badge-role-tag' }, config.badgeText)
+                            )
+                        )
+                    )
+                ),
+                React.createElement('div', { className: 'badge-footer' },
+                    React.createElement('div', { className: 'badge-footer-text' }, TEAM_NAME + ' Events'),
+                    React.createElement('div', { className: 'badge-footer-line' }),
+                    React.createElement('div', { className: 'badge-footer-text' }, EVENT_NAME + ' 2026')
+                )
+            );
+        }
+
+        // ============ SECURITY MODAL ============
+        function SecurityModal({ onAccess, onCancel }) {
+            const [code, setCode] = useState('');
+            const [error, setError] = useState('');
+
+            const handleSubmit = () => {
+                if (code === ACCESS_CODE) { onAccess(); }
+                else { setError('Code incorrect. Essayez "White".'); }
+            };
+
+            const handleKeyDown = (e) => { if (e.key === 'Enter') handleSubmit(); };
+
+            return React.createElement('div', { className: 'modal-overlay' },
+                React.createElement('div', { className: 'modal-content' },
+                    React.createElement('span', { className: 'lock-icon' }, '🔒'),
+                    React.createElement('h3', null, 'Accès sécurisé'),
+                    React.createElement('p', null, "Entrez le code d'accès pour consulter la liste des participants."),
+                    React.createElement('input', { type: 'text', placeholder: 'CODE', value: code, onChange: (e) => { setCode(e.target.value); setError(''); }, onKeyDown: handleKeyDown, autoFocus: true }),
+                    React.createElement('div', { className: 'error-msg' }, error),
+                    React.createElement('button', { className: 'btn btn-primary', onClick: handleSubmit, style: { marginBottom: 10 } }, '🔓 Vérifier'),
+                    React.createElement('button', { className: 'btn btn-outline', onClick: onCancel, style: { width: '100%' } }, '← Annuler')
+                )
+            );
+        }
+
+        // ============ PARTICIPANTS LIST PAGE ============
+        function ParticipantsPage({ onBack }) {
+            const [participants, setParticipants] = useState([]);
+            const [search, setSearch] = useState('');
+            const [showSecurity, setShowSecurity] = useState(true);
+            const [granted, setGranted] = useState(false);
+
+            useEffect(() => { setParticipants(getParticipants()); }, []);
+
+            const filtered = participants.filter(p => {
+                const term = search.toLowerCase();
+                return (p.lastName || '').toLowerCase().includes(term) || (p.firstName || '').toLowerCase().includes(term) || (p.role || '').toLowerCase().includes(term);
+            });
+
+            const countByRole = { 0: 0, 1: 0, 2: 0 };
+            participants.forEach(p => { const lvl = p.level || 2; countByRole[lvl] = (countByRole[lvl] || 0) + 1; });
+
+            const handleAccess = () => { setGranted(true); setShowSecurity(false); };
+
+            if (showSecurity && !granted) {
+                return React.createElement(SecurityModal, { onAccess: handleAccess, onCancel: onBack });
+            }
+
+            return React.createElement('div', { className: 'app-container' },
+                React.createElement('div', { className: 'app-header' },
+                    React.createElement('div', { className: 'wave-icon' }, '🌊'),
+                    React.createElement('h1', null, 'White Wave'),
+                    React.createElement('p', null, 'Liste des participants')
+                ),
+                React.createElement('div', { className: 'nav-bar' },
+                    React.createElement('button', { className: 'btn btn-outline', onClick: onBack }, '← Retour'),
+                    React.createElement('button', { className: 'btn btn-secondary', onClick: () => { if(confirm('Vider toute la liste ?')) { clearParticipants(); setParticipants([]); } } }, '🗑️ Vider')
+                ),
+                React.createElement('div', { className: 'card animate-fadeInUp' },
+                    React.createElement('div', { className: 'card-title' }, '📋 Participants'),
+                    React.createElement('div', { style: { display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 15 } },
+                        React.createElement('div', { className: 'participants-count' }, '👑 Organisateurs: ' + countByRole[0]),
+                        React.createElement('div', { className: 'participants-count' }, '🛡️ Staff: ' + countByRole[1]),
+                        React.createElement('div', { className: 'participants-count' }, '🎫 Participants: ' + countByRole[2])
+                    ),
+                    React.createElement('input', { className: 'search-box', type: 'text', placeholder: '🔍 Rechercher un participant...', value: search, onChange: (e) => setSearch(e.target.value) }),
+                    participants.length === 0 ? React.createElement('div', { style: { textAlign: 'center', padding: '40px 20px', color: 'var(--gray)' } }, 'Aucun participant enregistré.') :
+                    React.createElement('div', { style: { overflowX: 'auto' } },
+                        React.createElement('table', { className: 'participants-table' },
+                            React.createElement('thead', null,
+                                React.createElement('tr', null,
+                                    React.createElement('th', null, 'Nom'),
+                                    React.createElement('th', null, 'Prénom'),
+                                    React.createElement('th', null, 'Sexe'),
+                                    React.createElement('th', null, 'Rôle'),
+                                    React.createElement('th', null, 'Date')
+                                )
+                            ),
+                            React.createElement('tbody', null,
+                                filtered.map((p, i) => {
+                                    const lvl = p.level || 2;
+                                    const cfg = LEVEL_CONFIG[lvl];
+                                    return React.createElement('tr', { key: p.id || i },
+                                        React.createElement('td', null, React.createElement('strong', null, p.lastName || '-')),
+                                        React.createElement('td', null, p.firstName || '-'),
+                                        React.createElement('td', null, p.gender || '-'),
+                                        React.createElement('td', null,
+                                            React.createElement('div', { className: 'role-cell' },
+                                                React.createElement('div', { className: `role-dot ${cfg.className}` }),
+                                                React.createElement('span', null, p.role || '-')
+                                            )
+                                        ),
+                                        React.createElement('td', null, p.date || EVENT_DATE)
+                                    );
+                                })
+                            )
+                        )
+                    ),
+                    React.createElement('div', { style: { marginTop: 20, textAlign: 'center', color: 'var(--gray)', fontSize: '0.8rem' } },
+                        'Total: ' + participants.length + ' participant' + (participants.length > 1 ? 's' : '')
+                    )
+                )
+            );
+        }
+
+        // ============ FORM PAGE ============
+        function FormPage({ onGenerate }) {
+            const [lastName, setLastName] = useState('');
+            const [firstName, setFirstName] = useState('');
+            const [gender, setGender] = useState('');
+            const [role, setRole] = useState('');
+
+            const handleGenerate = () => {
+                if (!lastName.trim() || !firstName.trim() || !gender || !role) { alert('Veuillez remplir tous les champs !'); return; }
+                const level = getLevelFromRole(role);
+                const data = { event: EVENT_NAME, team: TEAM_NAME, lastName: lastName.trim(), firstName: firstName.trim(), gender, date: EVENT_DATE, role, level };
+                saveParticipant(data);
+                onGenerate(data);
+            };
+
+            return React.createElement('div', { className: 'app-container' },
+                React.createElement('div', { className: 'app-header' },
+                    React.createElement('div', { className: 'wave-icon' }, '🌊'),
+                    React.createElement('h1', null, 'White Wave'),
+                    React.createElement('p', null, 'Générateur de Badge Événementiel')
+                ),
+                React.createElement('div', { className: 'fixed-info-bar animate-fadeIn' },
+                    React.createElement('div', { className: 'fixed-info-item' },
+                        React.createElement('div', { className: 'icon purple' }, '🎉'),
+                        React.createElement('div', null, React.createElement('div', { className: 'label' }, 'Événement'), React.createElement('div', { className: 'value' }, EVENT_NAME))
+                    ),
+                    React.createElement('div', { className: 'fixed-info-item' },
+                        React.createElement('div', { className: 'icon pink' }, '🌊'),
+                        React.createElement('div', null, React.createElement('div', { className: 'label' }, 'Équipe'), React.createElement('div', { className: 'value' }, TEAM_NAME))
+                    ),
+                    React.createElement('div', { className: 'fixed-info-item' },
+                        React.createElement('div', { className: 'icon cyan' }, '📅'),
+                        React.createElement('div', null, React.createElement('div', { className: 'label' }, 'Date'), React.createElement('div', { className: 'value' }, EVENT_DATE))
+                    )
+                ),
+                React.createElement('div', { className: 'card animate-fadeInUp' },
+                    React.createElement('div', { className: 'card-title' }, '📝 Informations du participant'),
+                    React.createElement('div', { className: 'form-row' },
+                        React.createElement('div', { className: 'form-group' },
+                            React.createElement('label', null, '👤 Nom'),
+                            React.createElement('input', { type: 'text', placeholder: 'Ex: Fanou', value: lastName, onChange: (e) => setLastName(e.target.value) })
+                        ),
+                        React.createElement('div', { className: 'form-group' },
+                            React.createElement('label', null, '📝 Prénom'),
+                            React.createElement('input', { type: 'text', placeholder: 'Ex: Semako Feliciano', value: firstName, onChange: (e) => setFirstName(e.target.value) })
+                        )
+                    ),
+                    React.createElement('div', { className: 'form-row' },
+                        React.createElement('div', { className: 'form-group' },
+                            React.createElement('label', null, '⚧ Sexe'),
+                            React.createElement('div', { className: 'select-wrapper' },
+                                React.createElement('select', { value: gender, onChange: (e) => setGender(e.target.value) },
+                                    React.createElement('option', { value: '' }, 'Choisir...'),
+                                    React.createElement('option', { value: 'Masculin' }, 'Masculin'),
+                                    React.createElement('option', { value: 'Féminin' }, 'Féminin')
+                                )
+                            )
+                        ),
+                        React.createElement('div', { className: 'form-group' },
+                            React.createElement('label', null, '⭐ Rôle / Fonction'),
+                            React.createElement('div', { className: 'select-wrapper' },
+                                React.createElement('select', { value: role, onChange: (e) => setRole(e.target.value) },
+                                    React.createElement('option', { value: '' }, 'Choisir...'),
+                                    React.createElement('option', { value: 'Organisateur' }, 'Organisateur'),
+                                    React.createElement('option', { value: 'Staff' }, 'Staff'),
+                                    React.createElement('option', { value: 'Participant' }, 'Participant')
+                                )
+                            )
+                        )
+                    ),
+                    React.createElement('button', { className: 'btn btn-primary', onClick: handleGenerate }, '✨ Générer le Badge & QR Code')
+                )
+            );
+        }
+
+        // ============ GENERATED PAGE ============
+        function GeneratedPage({ data, onBack, onNew }) {
+            const [toastMsg, setToastMsg] = useState('');
+            const [toastVisible, setToastVisible] = useState(false);
+            const level = data.level || 0;
+            const config = LEVEL_CONFIG[level];
+            const encoded = btoa(JSON.stringify(data));
+            const badgeUrl = window.location.origin + window.location.pathname + '#' + encoded;
+
+            const showToast = (msg) => { setToastMsg(msg); setToastVisible(true); setTimeout(() => setToastVisible(false), 3000); };
+
+            const handleDownloadQR = () => {
+                const canvas = document.querySelector('.qr-container canvas');
+                if (!canvas) { showToast('QR non disponible'); return; }
+                const link = document.createElement('a');
+                link.download = `badge-qr-${data.lastName}-${data.firstName}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                showToast('✅ QR Code téléchargé !');
+            };
+
+            const handleShare = async () => {
+                const shareData = { title: `Badge ${EVENT_NAME} - ${data.firstName} ${data.lastName}`, text: `Voici mon badge pour ${EVENT_NAME} du ${EVENT_DATE} !`, url: badgeUrl };
+                if (navigator.share) { try { await navigator.share(shareData); showToast('✅ Partagé !'); } catch (e) {} }
+                else { navigator.clipboard.writeText(badgeUrl); showToast('📋 Lien copié !'); }
+            };
+
+            const handleScreenshot = () => {
+    alert(`📸 Pour capturer le badge :
+
+• iPhone : Volume Haut + Power  
+• Android : Power + Volume Bas  
+• PC : Win + Shift + S  
+• Mac : Cmd + Shift + 4`);
+};
+
+            const handlePrint = () => { window.print(); };
+
+            return React.createElement('div', { className: 'app-container' },
+                React.createElement('div', { className: 'app-header' },
+                    React.createElement('div', { className: 'wave-icon' }, '🌊'),
+                    React.createElement('h1', null, 'White Wave'),
+                    React.createElement('p', null, 'Badge généré avec succès !')
+                ),
+                React.createElement('div', { className: 'generated-layout' },
+                    React.createElement('div', { className: 'animate-fadeInUp' }, React.createElement(Badge, { data })),
+                    React.createElement('div', { className: 'card animate-fadeInUp', style: { animationDelay: '0.2s' } },
+                        React.createElement('div', { className: 'card-title' }, '📱 QR Code'),
+                        React.createElement('div', { className: 'qr-wrapper' },
+                            React.createElement(StyledQRCode, { url: badgeUrl, level }),
+                            React.createElement('div', { className: 'qr-label' }, 'Scannez ce QR code pour vérifier le badge')
+                        ),
+                        React.createElement('div', { className: 'btn-group' },
+                            React.createElement('button', { className: 'btn btn-cyan', onClick: handleDownloadQR }, '💾 Télécharger QR'),
+                            React.createElement('button', { className: 'btn btn-green', onClick: handleShare }, '🔗 Partager'),
+                            React.createElement('button', { className: 'btn btn-secondary', onClick: handleScreenshot }, '📸 Capture'),
+                            React.createElement('button', { className: 'btn btn-secondary', onClick: handlePrint }, '🖨️ Imprimer')
+                        ),
+                        React.createElement('div', { style: { marginTop: 20, display: 'flex', gap: 10 } },
+                            React.createElement('button', { className: 'btn btn-outline', onClick: onBack, style: { flex: 1 } }, '← Retour'),
+                            React.createElement('button', { className: 'btn btn-primary', onClick: onNew, style: { flex: 1 } }, '🆕 Nouveau Badge')
+                        )
+                    )
+                ),
+                React.createElement(Toast, { message: toastMsg, visible: toastVisible })
+            );
+        }
+
+        // ============ SCAN PAGE ============
+        function ScanPage({ data, onBack }) {
+            return React.createElement('div', { className: 'app-container page-scan' },
+                React.createElement('div', { className: 'app-header' },
+                    React.createElement('div', { className: 'wave-icon' }, '🌊'),
+                    React.createElement('h1', null, 'White Wave'),
+                    React.createElement('p', null, 'Vérification de badge')
+                ),
+                React.createElement('div', { className: 'scan-verified-banner animate-fadeIn' },
+                    React.createElement('span', { style: { fontSize: '1.5rem' } }, '✅'),
+                    React.createElement('span', null, 'Badge vérifié ! Ce badge est authentique.')
+                ),
+                React.createElement('div', { className: 'generated-layout' },
+                    React.createElement('div', { className: 'animate-fadeInUp' }, React.createElement(Badge, { data })),
+                    React.createElement('div', { className: 'card animate-fadeInUp', style: { animationDelay: '0.2s' } },
+                        React.createElement('div', { className: 'card-title' }, '🔒 Informations de vérification'),
+                        React.createElement('div', { style: { color: 'var(--gray)', fontSize: '0.9rem', lineHeight: 1.8, marginBottom: 20 } },
+                            React.createElement('p', null, React.createElement('strong', { style: { color: '#fff' } }, 'Événement : '), EVENT_NAME),
+                            React.createElement('p', null, React.createElement('strong', { style: { color: '#fff' } }, 'Date : '), EVENT_DATE),
+                            React.createElement('p', null, React.createElement('strong', { style: { color: '#fff' } }, 'Équipe : '), TEAM_NAME),
+                            React.createElement('p', null, React.createElement('strong', { style: { color: '#fff' } }, 'Participant : '), data.firstName + ' ' + data.lastName),
+                            React.createElement('p', null, React.createElement('strong', { style: { color: '#fff' } }, 'Rôle : '), data.role),
+                            React.createElement('p', null, React.createElement('strong', { style: { color: '#fff' } }, 'Niveau : '), LEVEL_CONFIG[data.level || 0].name)
+                        ),
+                        React.createElement('div', { style: { background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 12, padding: 16, textAlign: 'center' } },
+                            React.createElement('div', { style: { fontSize: '2rem', marginBottom: 8 } }, '✅'),
+                            React.createElement('div', { style: { color: '#10b981', fontWeight: 700, fontSize: '1rem' } }, 'Badge Valide'),
+                            React.createElement('div', { style: { color: 'var(--gray)', fontSize: '0.75rem', marginTop: 4 } }, 'Vérifié le ' + new Date().toLocaleDateString('fr-FR'))
+                        ),
+                        React.createElement('button', { className: 'btn btn-primary', onClick: onBack, style: { marginTop: 20, width: '100%' } }, '🆕 Créer un nouveau badge')
+                    )
+                )
+            );
+        }
+
+        // ============ SCANNER PAGE ============
+        function ScannerPage({ onScan, onBack }) {
+            const [scanning, setScanning] = useState(false);
+            const scannerRef = useRef(null);
+
+            useEffect(() => {
+                if (!scanning) return;
+                const html5QrCode = new Html5Qrcode("reader");
+                html5QrCode.start(
+                    { facingMode: "environment" },
+                    { fps: 10, qrbox: { width: 250, height: 250 } },
+                    (decodedText) => {
+                        html5QrCode.stop();
+                        setScanning(false);
+                        try {
+                            const hash = decodedText.split('#')[1];
+                            if (hash) { const data = JSON.parse(atob(hash)); onScan(data); }
+                        } catch (e) { alert('QR Code invalide'); }
+                    },
+                    (error) => {}
+                );
+                return () => { html5QrCode.stop().catch(() => {}); };
+            }, [scanning]);
+
+            return React.createElement('div', { className: 'app-container' },
+                React.createElement('div', { className: 'app-header' },
+                    React.createElement('div', { className: 'wave-icon' }, '🌊'),
+                    React.createElement('h1', null, 'White Wave'),
+                    React.createElement('p', null, 'Scanner un badge')
+                ),
+                React.createElement('div', { className: 'card animate-fadeInUp', style: { maxWidth: 500, margin: '0 auto' } },
+                    React.createElement('div', { className: 'card-title' }, '📷 Scanner un QR Code'),
+                    !scanning ?
+                        React.createElement('div', { style: { textAlign: 'center', padding: '40px 20px' } },
+                            React.createElement('div', { style: { fontSize: '4rem', marginBottom: 20, animation: 'float 3s ease-in-out infinite' } }, '📷'),
+                            React.createElement('p', { style: { color: 'var(--gray)', marginBottom: 25, lineHeight: 1.6 } }, "Placez le QR code d'un badge devant votre caméra pour le vérifier."),
+                            React.createElement('button', { className: 'btn btn-primary', onClick: () => setScanning(true) }, '📷 Activer la caméra'),
+                            React.createElement('button', { className: 'btn btn-outline', onClick: onBack, style: { marginTop: 12, width: '100%' } }, '← Retour')
+                        ) :
+                        React.createElement('div', null,
+                            React.createElement('div', { id: "reader", style: { width: '100%', borderRadius: 16, overflow: 'hidden' } }),
+                            React.createElement('button', { className: 'btn btn-outline', onClick: () => setScanning(false), style: { marginTop: 15, width: '100%' } }, '❌ Arrêter le scan')
+                        )
+                )
+            );
+        }
+
+        // ============ APP ============
+        function App() {
+            const [page, setPage] = useState('form');
+            const [badgeData, setBadgeData] = useState(null);
+            const [scanData, setScanData] = useState(null);
+
+            useEffect(() => {
+                const hash = window.location.hash.slice(1);
+                if (hash) {
+                    try { const data = JSON.parse(atob(hash)); setScanData(data); setPage('scan'); }
+                    catch (e) { console.error('Invalid QR data'); }
+                }
+            }, []);
+
+            const handleGenerate = (data) => { setBadgeData(data); setPage('generated'); window.scrollTo(0, 0); };
+            const handleScan = (data) => { setScanData(data); setPage('scan'); window.scrollTo(0, 0); };
+            const handleBack = () => { setPage('form'); window.location.hash = ''; window.scrollTo(0, 0); };
+            const handleNew = () => { setBadgeData(null); setPage('form'); window.location.hash = ''; window.scrollTo(0, 0); };
+            const handleOpenScanner = () => { setPage('scanner'); window.scrollTo(0, 0); };
+            const handleOpenList = () => { setPage('list'); window.scrollTo(0, 0); };
+
+            const showFabs = page !== 'scanner' && page !== 'scan';
+
+            return React.createElement('div', null,
+                page === 'form' && React.createElement(FormPage, { onGenerate: handleGenerate }),
+                page === 'generated' && React.createElement(GeneratedPage, { data: badgeData, onBack: handleBack, onNew: handleNew }),
+                page === 'scan' && React.createElement(ScanPage, { data: scanData, onBack: handleNew }),
+                page === 'scanner' && React.createElement(ScannerPage, { onScan: handleScan, onBack: handleBack }),
+                page === 'list' && React.createElement(ParticipantsPage, { onBack: handleBack }),
+                showFabs && React.createElement('div', null,
+                    React.createElement('button', { className: 'fab fab-home', onClick: handleBack, title: 'Accueil' }, '🏠'),
+                    React.createElement('button', { className: 'fab fab-list', onClick: handleOpenList, title: 'Liste participants' }, '📋'),
+                    React.createElement('button', { className: 'fab fab-scan', onClick: handleOpenScanner, title: 'Scanner QR' }, '📷')
+                )
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement(App));
+    </script>
+</body>
+</html>
